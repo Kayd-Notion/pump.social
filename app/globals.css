@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Neutral design tokens.
+ *
+ * The single brand accent lives here as RGB channel triplets so Tailwind's
+ * `rgb(var(--color-accent) / <alpha>)` can apply opacity. To re-skin the
+ * whole app, change these two lines (default: emerald-500).
+ */
+:root {
+  --color-accent: 16 185 129; /* emerald-500 */
+  --color-accent-fg: 255 255 255; /* text/icons on accent surfaces */
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-accent: 16 185 129;
+    --color-accent-fg: 255 255 255;
+  }
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  @apply bg-white text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Keep the wallet-adapter modal readable under the neutral theme. */
+.wallet-adapter-button-trigger {
+  background-color: rgb(var(--color-accent)) !important;
+}
