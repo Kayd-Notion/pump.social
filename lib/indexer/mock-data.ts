@@ -33,9 +33,43 @@ export const COUNTRIES: readonly Country[] = [
   { code: 'KR', name: 'South Korea', flag: '🇰🇷' },
 ];
 
+/** Deterministic hue (0..359) from a seed string. */
+function hueFromSeed(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
+  return h;
+}
+
+function svgDataUri(svg: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Deterministic placeholder avatar as an inline SVG data URI — no external
+ * asset host, so it renders offline and suits a static/decentralized target.
+ */
 function avatar(seed: string): string {
-  // Deterministic placeholder avatars, no external asset pipeline needed.
-  return `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(seed)}`;
+  const hue = hueFromSeed(seed);
+  const initials = seed.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase() || '?';
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">` +
+    `<rect width="96" height="96" fill="hsl(${hue} 55% 45%)"/>` +
+    `<text x="48" y="48" dy=".35em" text-anchor="middle" ` +
+    `font-family="sans-serif" font-size="38" font-weight="600" fill="#fff">${initials}</text>` +
+    `</svg>`;
+  return svgDataUri(svg);
+}
+
+/** Deterministic gradient placeholder for post media (inline SVG data URI). */
+function gradient(seed: string, width = 800, height = 600): string {
+  const hue = hueFromSeed(seed);
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="hsl(${hue} 60% 55%)"/>` +
+    `<stop offset="1" stop-color="hsl(${(hue + 45) % 360} 60% 35%)"/>` +
+    `</linearGradient></defs><rect width="${width}" height="${height}" fill="url(#g)"/></svg>`;
+  return svgDataUri(svg);
 }
 
 export const MOCK_USERS: User[] = [
@@ -133,7 +167,7 @@ interface PostSeed {
 function image(seed: string): Post['media'] {
   return {
     type: 'image',
-    url: `https://picsum.photos/seed/${seed}/800/600`,
+    url: gradient(seed),
     alt: 'Placeholder image',
   };
 }
@@ -193,7 +227,7 @@ const POST_SEEDS: PostSeed[] = [
     media: {
       type: 'video',
       url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      posterUrl: 'https://picsum.photos/seed/videoposter/800/600',
+      posterUrl: gradient('videoposter'),
       alt: 'Sample video',
     },
     ageHours: 33, lifetimeHours: 40, totalPumped: 63.2, pumpCount: 288, commentCount: 44,
