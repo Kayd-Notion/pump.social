@@ -45,4 +45,11 @@ export function splitLamports(totalLamports: number): {
   return { creatorLamports, founderLamports };
 }
 
-export const FOUNDER_WALLET = process.env.NEXT_PUBLIC_FOUNDER_WALLET || "";
+// A throwaway devnet address so zero-config previews (e.g. Vercel) can send the
+// platform share without any env setup. Only used off-mainnet; on mainnet the
+// founder wallet MUST be configured explicitly or pumps refuse to build.
+const DEVNET_DEMO_FOUNDER = "4QmGx5cAVfuSdEpZgwmwv6J5SJbWYguphDAv8a6Jn22r";
+const isMainnet = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "devnet").trim() === "mainnet-beta";
+
+export const FOUNDER_WALLET =
+  process.env.NEXT_PUBLIC_FOUNDER_WALLET || (isMainnet ? "" : DEVNET_DEMO_FOUNDER);

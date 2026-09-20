@@ -6,6 +6,7 @@
  * the whole app runs and is testable locally without provisioning Postgres.
  */
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { buildSeed } from "./seed";
@@ -29,7 +30,17 @@ interface DbShape {
   pumps: Pump[];
 }
 
-const DATA_DIR = path.join(process.cwd(), ".data");
+// On serverless/read-only filesystems (e.g. Vercel) `process.cwd()` isn't
+// writable — fall back to the OS temp dir so previews don't crash on writes.
+// Data there is ephemeral (per warm instance); use Postgres for durability.
+function resolveDataDir(): string {
+  if (process.env.PS_DATA_DIR) return process.env.PS_DATA_DIR;
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join(os.tmpdir(), "pump-social");
+  }
+  return path.join(process.cwd(), ".data");
+}
+const DATA_DIR = resolveDataDir();
 const DATA_FILE = path.join(DATA_DIR, "db.json");
 
 let db: DbShape | null = null;
@@ -45,7 +56,7 @@ async function load(): Promise<DbShape> {
       db = JSON.parse(raw) as DbShape;
     } catch {
       db = buildSeed();
-      await persistNow(db);
+      await persistNow(db); // best-effort; safe if the FS is read-only
     }
     return db;
   })();
@@ -53,13 +64,17 @@ async function load(): Promise<DbShape> {
 }
 
 async function persistNow(snapshot: DbShape): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(snapshot, null, 2), "utf8");
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(DATA_FILE, JSON.stringify(snapshot, null, 2), "utf8");
+  } catch {
+    // Read-only filesystem (serverless): keep serving from the in-memory copy.
+  }
 }
 
 function persist(): void {
   // Serialize writes to avoid interleaved file writes clobbering each other.
-  writeChain = writeChain.then(() => (db ? persistNow(db) : Promise.resolve()));
+  writeChain = writeChain.then(() => (db ? persistNow(db) : Promise.resolve())).catch(() => {});
 }
 
 function authorOf(u: User) {
