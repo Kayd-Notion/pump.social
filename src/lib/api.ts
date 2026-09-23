@@ -51,7 +51,7 @@ export const api = {
       user: ClientUser;
       postsCount: number;
       active: ClientPost[];
-      expired: ClientPost[];
+      expiredCount: number;
     }>(`/api/users/${encodeURIComponent(handle)}`),
 
   // Posts

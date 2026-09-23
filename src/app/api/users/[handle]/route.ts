@@ -5,7 +5,7 @@ import { lifespanInfo } from "@/lib/lifespan";
 
 export const runtime = "nodejs";
 
-/** Public profile + the user's posts (active/expired split). */
+/** Public profile + active posts, and the number of expired posts (count only). */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ handle: string }> },
@@ -18,13 +18,13 @@ export async function GET(
   const posts = await store.listPosts({ limit: 100, authorId: user.id, tab: "live" });
   const now = Date.now();
   const active = posts.filter((p) => !lifespanInfo(p.createdAt, p.pumped, now).expired);
-  const expired = posts.filter((p) => lifespanInfo(p.createdAt, p.pumped, now).expired);
+  const expiredCount = posts.length - active.length;
 
   const pub = publicUser(user);
   return NextResponse.json({
     user: pub,
     postsCount: posts.length,
     active,
-    expired,
+    expiredCount,
   });
 }

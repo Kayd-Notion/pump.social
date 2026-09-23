@@ -17,9 +17,8 @@ export function ProfileView({ handle }: { handle: string }) {
     user: ClientUser;
     postsCount: number;
     active: ClientPost[];
-    expired: ClientPost[];
+    expiredCount: number;
   } | null>(null);
-  const [tab, setTab] = useState<"active" | "expired">("active");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,7 +49,6 @@ export function ProfileView({ handle }: { handle: string }) {
   const u = data.user;
   const isMe = user?.id === u.id;
   const showGiven = isMe || !u.hidePumpHistory;
-  const list = tab === "active" ? data.active : data.expired;
 
   return (
     <section>
@@ -103,7 +101,9 @@ export function ProfileView({ handle }: { handle: string }) {
         </div>
         <div className="stat-box">
           <div className="sb-val">{data.postsCount}</div>
-          <div className="sb-label">Posts</div>
+          <div className="sb-label">
+            Posts · {data.expiredCount} {data.expiredCount > 1 ? "expirés" : "expiré"}
+          </div>
         </div>
       </div>
       {!showGiven && (
@@ -112,19 +112,11 @@ export function ProfileView({ handle }: { handle: string }) {
         </p>
       )}
 
-      <div className="tabs" style={{ position: "static" }}>
-        <div className={`tab${tab === "active" ? " active" : ""}`} onClick={() => setTab("active")}>
-          Posts actifs ({data.active.length})
-        </div>
-        <div className={`tab${tab === "expired" ? " active" : ""}`} onClick={() => setTab("expired")}>
-          Expirés ({data.expired.length})
-        </div>
-      </div>
-
-      {list.length ? (
-        list.map((p) => <PostCard key={p.id} post={p} />)
+      <div className="section-title">Posts actifs</div>
+      {data.active.length ? (
+        data.active.map((p) => <PostCard key={p.id} post={p} />)
       ) : (
-        <div className="empty-state">Aucun post {tab === "active" ? "actif" : "expiré"}.</div>
+        <div className="empty-state">Aucun post actif.</div>
       )}
     </section>
   );
