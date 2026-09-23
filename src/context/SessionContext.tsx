@@ -23,6 +23,8 @@ interface SessionContextValue {
   walletAddress: string | null;
   walletConnected: boolean;
   requireAuth: (msg?: string) => boolean;
+  /** Call when the user explicitly picks a wallet to sign in (never on auto-connect). */
+  beginLogin: () => void;
   completeOnboarding: (handle: string, bio?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -30,6 +32,17 @@ interface SessionContextValue {
 }
 
 const Ctx = createContext<SessionContextValue | null>(null);
+
+// Non-sensitive hint (the real session is the httpOnly cookie) used to decide
+// whether the wallet may silently auto-reconnect on page load.
+function setLoggedInHint(on: boolean) {
+  try {
+    if (on) localStorage.setItem("ps_logged_in", "1");
+    else localStorage.removeItem("ps_logged_in");
+  } catch {
+    /* ignore */
+  }
+}
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { publicKey, connected, signMessage, disconnect } = useWallet();
@@ -39,8 +52,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>("loading");
   const authedFor = useRef<string | null>(null); // pubkey we've already authenticated
   const authInFlight = useRef(false);
+  // Sign-in only runs after an explicit user action; a silent wallet
+  // auto-reconnect on page load must never trigger a signature popup.
+  const loginIntent = useRef(false);
+  const [loginRequest, setLoginRequest] = useState(0);
 
   const walletAddress = publicKey ? publicKey.toBase58() : null;
+
+  useEffect(() => {
+    if (status !== "loading") setLoggedInHint(Boolean(user));
+  }, [user, status]);
 
   // Restore session from cookie on mount.
   useEffect(() => {
@@ -101,13 +122,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [signMessage, toast, openOnboard, closeModal],
   );
 
-  // When a wallet connects and we haven't authenticated it yet, run SIWS.
+  const beginLogin = useCallback(() => {
+    loginIntent.current = true;
+    setLoginRequest((n) => n + 1);
+  }, []);
+
+  // Run SIWS only once the user asked to log in AND the wallet is connected.
+  // Waits for the cookie session restore so an existing session isn't re-signed.
   useEffect(() => {
+    if (!loginIntent.current || status === "loading") return;
     if (!connected || !walletAddress) return;
-    if (user && user.wallet === walletAddress) return;
-    if (authedFor.current === walletAddress) return;
+    loginIntent.current = false;
+    if (user && user.wallet === walletAddress) {
+      closeModal();
+      return;
+    }
+    authedFor.current = null;
     authenticate(walletAddress);
-  }, [connected, walletAddress, user, authenticate]);
+  }, [loginRequest, connected, walletAddress, user, status, authenticate, closeModal]);
 
   const completeOnboarding = useCallback(
     async (handle: string, bio?: string) => {
@@ -162,12 +194,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       walletAddress,
       walletConnected: connected,
       requireAuth,
+      beginLogin,
       completeOnboarding,
       logout,
       refreshUser,
       setUser,
     }),
-    [user, status, walletAddress, connected, requireAuth, completeOnboarding, logout, refreshUser],
+    [user, status, walletAddress, connected, requireAuth, beginLogin, completeOnboarding, logout, refreshUser],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

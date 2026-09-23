@@ -10,6 +10,16 @@ import { UIProvider } from "@/context/UIContext";
 import { SessionProvider } from "@/context/SessionContext";
 import { AppShell } from "@/components/AppShell";
 
+// Only silently reconnect the wallet for people who already have a session;
+// first-time visitors are never prompted by their wallet extension.
+async function shouldAutoConnect(): Promise<boolean> {
+  try {
+    return localStorage.getItem("ps_logged_in") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const endpoint = useMemo(() => rpcEndpoint(), []);
   // Empty adapter list: Phantom / Solflare / Backpack (and any others) are
@@ -18,7 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={wallets} autoConnect={shouldAutoConnect}>
         <UIProvider>
           <SessionProvider>
             <AppShell>{children}</AppShell>

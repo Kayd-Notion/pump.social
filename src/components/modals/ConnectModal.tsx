@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletReadyState } from "@solana/wallet-adapter-base";
 import { Modal } from "../Modal";
 import { useUI } from "@/context/UIContext";
+import { useSession } from "@/context/SessionContext";
 
 // Wallets we always surface so users can pick one even if Brave's built-in
 // wallet is the only auto-detected provider.
@@ -16,6 +17,7 @@ const KNOWN = [
 export function ConnectModal() {
   const { wallets, select, connect, connecting, connected, wallet } = useWallet();
   const { connectMessage, closeModal, toast } = useUI();
+  const { beginLogin } = useSession();
 
   // Auto-connect once a wallet is selected (we drive our own UI).
   useEffect(() => {
@@ -56,7 +58,19 @@ export function ConnectModal() {
             <button
               key={w.adapter.name}
               className="wallet-option"
-              onClick={() => select(w.adapter.name)}
+              onClick={() => {
+                beginLogin();
+                if (wallet?.adapter.name === w.adapter.name) {
+                  // Already selected: select() is a no-op, so connect directly.
+                  if (!connected) {
+                    connect().catch((e) =>
+                      toast(e instanceof Error ? e.message : "Connexion refusée."),
+                    );
+                  }
+                } else {
+                  select(w.adapter.name);
+                }
+              }}
             >
               {w.adapter.icon && (
                 // eslint-disable-next-line @next/next/no-img-element
